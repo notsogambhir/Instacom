@@ -1,0 +1,23 @@
+{
+  "name": "instacom-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "Webapp",
+    "Extension",
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "vitest",
+    "dev": "concurrently \"npm run dev -w apps/server\" \"npm run dev -w Webapp\"",
+    "build": "npm run build --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "jsdom": "^24.0.0"
+  }
+}

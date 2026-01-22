@@ -1,0 +1,26 @@
+# Antigravity System Instructions
+
+This file serves as the persistent context and rule set for the AI Assistant (Antigravity) across multiple sessions.
+
+## 1. Session Initialization
+*   **MANDATORY:** At the start of every session, you MUST read `DEV_LOG.md` to determine the current Phase and Status.
+*   **Review Errors:** Check `ERROR_LOG.md` for recent blockers or recurring issues.
+*   **Documentation:** Ensure alignment with `Docs/Implementation Plan.md`.
+
+## 2. Development Workflow (AI-Driven TDD)
+*   **Test-Driven Development (TDD):**
+    1.  **Write Tests First:** Generate a `.test.ts` file using `vitest` before writing the implementation.
+    2.  **Verify Failure:** Ensure the test fails (Red).
+    3.  **Implement:** Write the minimal code to pass the test (Green).
+    4.  **Refactor:** Optimize code quality.
+*   **Component Generation:** Use functional component generation for UI, strictly following **React 19** and **Tailwind v4** syntax.
+
+## 3. Technology Stack Constraints
+*   **Frontend:** React 19, Tailwind v4.
+*   **Transport:** Socket.io w/ WebTransport.
+*   **Audio:** rnnoise-wasm (Client-side noise suppression).
+*   **Backend:** Node.js (Fastify) + TypeScript.
+
+## 4. Logging & Tracking
+*   **DEV_LOG.md:** Update this file *immediately* after completing a Phase or Sub-task.
+*   **ERROR_LOG.md:** Log every non-trivial error, specifically tool failures, build errors, or logic bugs. Format: Date, Error, Cause, Solution.

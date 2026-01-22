@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String @id @default(uuid())
+  email        String @unique
+  passwordHash String
+  name         String
+  role         String // "SUPER_ADMIN", "GROUP_ADMIN", "MEMBER"
+  isActive     Boolean @default(true)
+  
+  groupId      String?
+  group        Group? @relation(fields: [groupId], references: [id])
+  
+  createdInvites Invite[]
+  auditLogs      AuditLog[]
+  refreshTokens  RefreshToken[]
+}
+
+model Group {
+  id        String @id @default(uuid())
+  name      String
+  maxSeats  Int @default(10)
+  users     User[]
+  invites   Invite[]
+}
+
+model Invite {
+  token     String @id
+  email     String
+  role      String
+  groupId   String
+  expiresAt DateTime
+  
+  createdBy String 
+  creator   User @relation(fields: [createdBy], references: [id])
+  
+  group     Group @relation(fields: [groupId], references: [id])
+}
+
+model RefreshToken {
+  token     String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id])
+  action    String
+  resource  String
+  timestamp DateTime @default(now())
+}

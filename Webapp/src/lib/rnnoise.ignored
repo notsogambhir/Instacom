@@ -1,0 +1,23 @@
+// Stub for RNNoise WASM module
+// In production, this will look for the WASM file and instantiate it.
+
+export interface RnnoiseProcessor {
+    process(frame: Float32Array): Float32Array;
+    destroy(): void;
+}
+
+export async function createRnnoiseProcessor(_options?: any): Promise<RnnoiseProcessor> {
+    console.log("Initializing RNNoise Stub...");
+    // Simulate async WASM load
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    return {
+        process: (frame: Float32Array) => {
+            // Pass-through for now
+            return Float32Array.from(frame);
+        },
+        destroy: () => {
+            console.log("RNNoise Stub Destroyed");
+        }
+    };
+}
