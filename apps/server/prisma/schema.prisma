@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -18,17 +18,23 @@ model User {
   groupId      String?
   group        Group? @relation(fields: [groupId], references: [id])
   
-  createdInvites Invite[]
-  auditLogs      AuditLog[]
-  refreshTokens  RefreshToken[]
+  // Status tracking for P0 features
+  status       String @default("OFFLINE") // ACTIVE, AFK, DND, OFFLINE
+  lastSeenAt   DateTime @default(now())
+  
+  createdInvites  Invite[]
+  auditLogs       AuditLog[]
+  refreshTokens   RefreshToken[]
+  sentMessages    VoiceMessage[] @relation("SentMessages")
 }
 
 model Group {
-  id        String @id @default(uuid())
-  name      String
-  maxSeats  Int @default(10)
-  users     User[]
-  invites   Invite[]
+  id            String @id @default(uuid())
+  name          String
+  maxSeats      Int @default(10)
+  users         User[]
+  invites       Invite[]
+  voiceMessages VoiceMessage[]
 }
 
 model Invite {
@@ -58,4 +64,27 @@ model AuditLog {
   action    String
   resource  String
   timestamp DateTime @default(now())
+}
+
+model VoiceMessage {
+  id          String   @id @default(uuid())
+  senderId    String
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  
+  // Recipients - either direct or group
+  recipientId String?  // For 1-on-1 messages
+  groupId     String?  // For group broadcasts
+  group       Group?   @relation(fields: [groupId], references: [id])
+  
+  // Audio data
+  audioUrl    String   // Supabase Storage URL
+  duration    Int      // Duration in seconds
+  
+  // Metadata
+  isPlayed    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime // Auto-delete after 7 days
+  
+  @@index([recipientId, createdAt])
+  @@index([groupId, createdAt])
 }

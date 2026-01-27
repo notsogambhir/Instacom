@@ -31,5 +31,9 @@ export declare const SocketEvents: {
     readonly DISCONNECT: "disconnect";
     readonly JOIN_ROOM: "join-room";
     readonly VOICE_STREAM: "voice-stream";
+    readonly VOICE_STREAM_START: "voice-stream-start";
+    readonly VOICE_STREAM_END: "voice-stream-end";
+    readonly MESSAGE_ID: "message-id";
+    readonly USER_STATUS_CHANGED: "user-status-changed";
 };
 export type SocketEventType = typeof SocketEvents[keyof typeof SocketEvents];

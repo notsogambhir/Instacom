@@ -35,7 +35,11 @@ export const SocketEvents = {
     CONNECTION: 'connection',
     DISCONNECT: 'disconnect',
     JOIN_ROOM: 'join-room',
-    VOICE_STREAM: 'voice-stream'
+    VOICE_STREAM: 'voice-stream',
+    VOICE_STREAM_START: 'voice-stream-start',
+    VOICE_STREAM_END: 'voice-stream-end',
+    MESSAGE_ID: 'message-id',
+    USER_STATUS_CHANGED: 'user-status-changed'
 } as const;
 
 export type SocketEventType = typeof SocketEvents[keyof typeof SocketEvents];

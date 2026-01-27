@@ -11,13 +11,20 @@ declare global {
     }
 }
 
+export type TargetSelection = {
+    type: 'BROADCAST' | 'DIRECT';
+    userId?: string;
+};
+
 export const useAudioSession = () => {
-    const { accessToken } = useAuth();
+    const { accessToken, user } = useAuth();
     const [isOnline, setIsOnline] = useState(false);
     const [isBroadcasting, setIsBroadcasting] = useState(false);
+    const [target, setTarget] = useState<TargetSelection>({ type: 'BROADCAST' });
     const socketRef = useRef<any>(null);
     const audioProcessorRef = useRef<AudioProcessor | null>(null);
     const audioPlayerRef = useRef<AudioPlayer | null>(null);
+    const currentMessageIdRef = useRef<string | null>(null);
 
     // Initialize Socket and Audio on "Go Online"
     const goOnline = async () => {
@@ -54,6 +61,12 @@ export const useAudioSession = () => {
             socket.on('connect_error', (err: any) => {
                 console.error('Socket error:', err);
                 setIsOnline(false);
+            });
+
+            // Listen for message ID after starting a stream
+            socket.on(SocketEvents.MESSAGE_ID, (messageId: string) => {
+                currentMessageIdRef.current = messageId;
+                console.log(`📤  Got message ID: ${messageId}`);
             });
 
             // Handle incoming audio from other users
@@ -98,16 +111,48 @@ export const useAudioSession = () => {
     const startBroadcasting = () => {
         if (!isOnline || !audioProcessorRef.current || !socketRef.current) return;
 
-        setIsBroadcasting(true);
-        audioProcessorRef.current.startCapture((chunk: Float32Array) => {
-            socketRef.current?.emit(SocketEvents.VOICE_STREAM, chunk);
-        });
+        // Start a new voice message
+        const metadata = target.type === 'BROADCAST'
+            ? { groupId: user?.groupId }
+            : { recipientId: target.userId };
+
+        socketRef.current.emit(SocketEvents.VOICE_STREAM_START, metadata);
+
+        // Wait for message ID, then start capturing
+        const checkMessageId = setInterval(() => {
+            if (currentMessageIdRef.current) {
+                clearInterval(checkMessageId);
+                setIsBroadcasting(true);
+
+                audioProcessorRef.current!.startCapture((chunk: Float32Array) => {
+                    socketRef.current?.emit(
+                        SocketEvents.VOICE_STREAM,
+                        chunk,
+                        currentMessageIdRef.current
+                    );
+                });
+            }
+        }, 50);
+
+        // Timeout after 3 seconds
+        setTimeout(() => clearInterval(checkMessageId), 3000);
     };
 
     const stopBroadcasting = () => {
         if (!isOnline || !audioProcessorRef.current) return;
+
         setIsBroadcasting(false);
         audioProcessorRef.current.stopCapture();
+
+        // End the voice message
+        if (currentMessageIdRef.current && socketRef.current) {
+            socketRef.current.emit(SocketEvents.VOICE_STREAM_END, currentMessageIdRef.current);
+            currentMessageIdRef.current = null;
+        }
+    };
+
+    const selectTarget = (newTarget: TargetSelection) => {
+        setTarget(newTarget);
     };
 
     // Cleanup on unmount
@@ -120,9 +165,11 @@ export const useAudioSession = () => {
     return {
         isOnline,
         isBroadcasting,
+        target,
         goOnline,
         goOffline,
         startBroadcasting,
-        stopBroadcasting
+        stopBroadcasting,
+        selectTarget
     };
 };

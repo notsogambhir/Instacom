@@ -1,13 +1,14 @@
 import Fastify from 'fastify';
-import { Server } from 'socket.io';
-import { SocketEvents, AuthPayload } from '@instacom/shared';
-import jwt from 'jsonwebtoken';
-
-import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
+import { Server } from 'socket.io';
+import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
+import { SocketEvents, type AuthPayload } from '@instacom/shared';
 import { authRoutes } from './routes/auth.routes';
 
 const fastify = Fastify({ logger: true });
+const prisma = new PrismaClient();
 
 const start = async () => {
     try {
@@ -21,6 +22,14 @@ const start = async () => {
 
         await fastify.register(cookie as any);
         await fastify.register(authRoutes);
+
+        // Register status routes (requires auth)
+        const { statusRoutes } = await import('./routes/status.routes');
+        await fastify.register(statusRoutes);
+
+        // Register voice message routes (requires auth)
+        const { voiceRoutes } = await import('./routes/voice.routes');
+        await fastify.register(voiceRoutes);
 
         // Setup Socket.io
         const io = new Server(fastify.server, {
@@ -47,9 +56,26 @@ const start = async () => {
             }
         });
 
-        io.on('connection', (socket) => {
+        // Track active voice messages
+        const activeMessages = new Map<string, {
+            chunks: Float32Array[];
+            startTime: number;
+            metadata: any;
+        }>();
+
+        io.on('connection', async (socket) => {
             const user = socket.data.user as AuthPayload;
             fastify.log.info(`Client connected: ${socket.id} (${user.email})`);
+
+            // Update user status to ACTIVE
+            try {
+                await prisma.user.update({
+                    where: { id: user.userId },
+                    data: { status: 'ACTIVE', lastSeenAt: new Date() }
+                });
+            } catch (err) {
+                fastify.log.error({ err }, 'Failed to update user status');
+            }
 
             // Join Group Room
             if (user.groupId) {
@@ -58,15 +84,101 @@ const start = async () => {
                 fastify.log.info(`Socket ${socket.id} auto-joined ${roomId}`);
             }
 
-            socket.on('disconnect', () => {
+            socket.on('disconnect', async () => {
                 fastify.log.info(`Client disconnected: ${socket.id}`);
+
+                // Update status to OFFLINE
+                try {
+                    await prisma.user.update({
+                        where: { id: user.userId },
+                        data: { status: 'OFFLINE', lastSeenAt: new Date() }
+                    });
+                } catch (err) {
+                    fastify.log.error({ err }, 'Failed to update user status on disconnect');
+                }
             });
 
-            socket.on(SocketEvents.VOICE_STREAM, (chunk) => {
-                // Only broadcast to user's group
-                if (user.groupId) {
-                    const roomId = `group_${user.groupId}`;
-                    socket.to(roomId).emit(SocketEvents.VOICE_STREAM, chunk, socket.id);
+            // VOICE_STREAM_START - Initialize new message
+            socket.on(SocketEvents.VOICE_STREAM_START, (metadata: { groupId?: string; recipientId?: string }) => {
+                const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                activeMessages.set(messageId, {
+                    chunks: [],
+                    startTime: Date.now(),
+                    metadata: { ...metadata, senderId: user.userId }
+                });
+                socket.emit(SocketEvents.MESSAGE_ID, messageId);
+                fastify.log.info(`Voice stream started: ${messageId}`);
+            });
+
+            // VOICE_STREAM - Receive audio chunk
+            socket.on(SocketEvents.VOICE_STREAM, async (chunk: Float32Array, messageId: string) => {
+                const message = activeMessages.get(messageId);
+                if (!message) {
+                    fastify.log.warn(`Received chunk for unknown message: ${messageId}`);
+                    return;
+                }
+
+                // Store chunk
+                message.chunks.push(chunk);
+
+                // Get recipients
+                const { getRecipients } = await import('./services/voice.service');
+                const recipients = await getRecipients(message.metadata);
+
+                // Live stream to ACTIVE users only
+                const activeUsers = recipients.filter((u: any) => u.status === 'ACTIVE');
+
+                for (const recipient of activeUsers) {
+                    // Find their socket ID (simplified - in production use a socket-user map)
+                    const targetSocketId = Array.from(io.sockets.sockets.values())
+                        .find(s => (s.data.user as AuthPayload)?.userId === recipient.id)?.id;
+
+                    if (targetSocketId) {
+                        io.to(targetSocketId).emit(SocketEvents.VOICE_STREAM, chunk, socket.id);
+                    }
+                }
+            });
+
+            // VOICE_STREAM_END - Finalize and store message
+            socket.on(SocketEvents.VOICE_STREAM_END, async (messageId: string) => {
+                const message = activeMessages.get(messageId);
+                if (!message) {
+                    fastify.log.warn(`Received end for unknown message: ${messageId}`);
+                    return;
+                }
+
+                try {
+                    // Combine chunks
+                    const { combineAudioChunks, uploadVoiceMessage } = await import('./services/storage.service');
+                    const audioBuffer = combineAudioChunks(message.chunks);
+
+                    // Upload to storage
+                    const audioUrl = await uploadVoiceMessage(audioBuffer, message.metadata);
+
+                    // Calculate duration
+                    const duration = Math.floor((Date.now() - message.startTime) / 1000);
+
+                    // Save to database
+                    await prisma.voiceMessage.create({
+                        data: {
+                            senderId: message.metadata.senderId,
+                            recipientId: message.metadata.recipientId,
+                            groupId: message.metadata.groupId,
+                            audioUrl,
+                            duration,
+                            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+                        }
+                    });
+
+                    // Cleanup old messages
+                    const { cleanupOldMessages } = await import('./services/voice.service');
+                    await cleanupOldMessages(message.metadata);
+
+                    fastify.log.info(`Voice message saved: ${messageId} (${duration}s)`);
+                } catch (err) {
+                    fastify.log.error({ err }, 'Failed to save voice message');
+                } finally {
+                    activeMessages.delete(messageId);
                 }
             });
         });

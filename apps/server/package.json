@@ -12,6 +12,7 @@
     "@fastify/cors": "^11.2.0",
     "@instacom/shared": "^1.0.0",
     "@prisma/client": "5.10.0",
+    "@supabase/supabase-js": "^2.93.1",
     "argon2": "^0.44.0",
     "fastify": "^5.7.1",
     "jsonwebtoken": "^9.0.3",
