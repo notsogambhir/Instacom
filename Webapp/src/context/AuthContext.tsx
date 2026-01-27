@@ -33,13 +33,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     };
                     setUser(payload);
                     setAccessToken(data.token);
+                    // Store token in localStorage for API interceptor
+                    localStorage.setItem('accessToken', data.token);
                 }
-                // Set default header for future requests if needed for Access Token
-                // api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
             } catch (err) {
                 // Not logged in or expired
                 setUser(null);
                 setAccessToken(null);
+                localStorage.removeItem('accessToken');
             } finally {
                 setIsLoading(false);
             }
@@ -58,12 +59,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
         setUser(payload);
         setAccessToken(data.token);
+        // Store token in localStorage for API interceptor
+        localStorage.setItem('accessToken', data.token);
     };
 
     const logout = async () => {
         await api.post('/auth/logout');
         setUser(null);
         setAccessToken(null);
+        // Remove token from localStorage
+        localStorage.removeItem('accessToken');
     };
 
     return (

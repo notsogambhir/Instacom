@@ -5,5 +5,14 @@ export const api = axios.create({
     withCredentials: true // Important for HttpOnly cookies
 });
 
-// Interceptor for 401s handled in AuthContext or here.
-// For simplicity, let's keep it here if we can access store, or just basic setup.
+// Add request interceptor to attach Authorization header
+api.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
