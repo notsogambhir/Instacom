@@ -1,14 +1,15 @@
--- Create Admin User for InstaCom
--- Run this in Supabase SQL Editor after the main setup script
+-- Create Admin User (After Schema Fix)
+-- Run this AFTER running fix-schema-mismatch.sql
 
--- Create admin user with hashed password
+-- Delete old admin user if exists
+DELETE FROM "User" WHERE "email" = 'admin@instacom.local';
+
+-- Create admin user with correct field names and argon2 hash
 -- Password: admin123
--- The hash below is bcrypt hash of "admin123" with salt rounds = 10
 INSERT INTO "User" (
     "email",
-    "username", 
-    "displayName",
-    "password",
+    "name", 
+    "passwordHash",
     "role",
     "status",
     "groupId"
@@ -16,8 +17,7 @@ INSERT INTO "User" (
 SELECT 
     'admin@instacom.local',
     'admin',
-    'Admin User',
-    '$2b$10$rBV2KriYqEsHQ7rGDMxhSO7k.8vQX/cXKJZKHGOGJGV8Y8qYxI5Qi',  -- admin123
+    '$argon2id$v=19$m=65536,t=3,p=4$R+jxLvjSVHy0+KaEHpm8oQ$cOOXM3X/9GpjyFOFn3/t99jNgimv1x8Amfu2SlgT+8A',
     'SUPER_ADMIN',
     'OFFLINE',
     "id"
@@ -26,6 +26,7 @@ WHERE "groupCode" = 'DEFAULT'
 LIMIT 1;
 
 -- Verify user created
-SELECT "id", "email", "username", "displayName", "role" 
+SELECT "id", "email", "name", "role", 
+    substring("passwordHash", 1, 30) as "hash_preview"
 FROM "User" 
 WHERE "email" = 'admin@instacom.local';
