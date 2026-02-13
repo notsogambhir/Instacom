@@ -5,7 +5,8 @@
   "scripts": {
     "test": "vitest",
     "dev": "tsx watch src/index.ts",
-    "build": "echo 'No build required for server yet' && exit 0"
+    "start": "tsx src/index.ts",
+    "build": "npx prisma generate"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
