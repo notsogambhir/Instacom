@@ -81,7 +81,7 @@ export class AudioProcessor {
         }
     }
 
-    stopCapture() {
+    async stopCapture() {
         if (this.processor) {
             this.processor.disconnect();
             this.processor = null;
@@ -99,6 +99,9 @@ export class AudioProcessor {
 
         this.onDataCallback = null;
         console.log('Mic capture stopped');
+
+        // Wait for browser to fully release the mic hardware
+        await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     close() {

@@ -108,12 +108,12 @@ export const useAudioSession = () => {
         setIsBroadcasting(false);
     };
 
-    const startBroadcasting = () => {
+    const startBroadcasting = async () => {
         if (!isOnline || !audioProcessorRef.current || !socketRef.current) return;
 
-        // Ensure previous capture is stopped
+        // Ensure previous capture is stopped and tracks are fully released
         if (audioProcessorRef.current) {
-            audioProcessorRef.current.stopCapture();
+            await audioProcessorRef.current.stopCapture();
         }
 
         // Start a new voice message
@@ -125,19 +125,24 @@ export const useAudioSession = () => {
 
         // Wait for message ID, then start capturing
         let captureStarted = false;
-        const checkMessageId = setInterval(() => {
+        const checkMessageId = setInterval(async () => {
             if (currentMessageIdRef.current && !captureStarted) {
                 captureStarted = true;
                 clearInterval(checkMessageId);
                 setIsBroadcasting(true);
 
-                audioProcessorRef.current!.startCapture((chunk: Float32Array) => {
-                    socketRef.current?.emit(
-                        SocketEvents.VOICE_STREAM,
-                        chunk,
-                        currentMessageIdRef.current
-                    );
-                });
+                try {
+                    await audioProcessorRef.current!.startCapture((chunk: Float32Array) => {
+                        socketRef.current?.emit(
+                            SocketEvents.VOICE_STREAM,
+                            chunk,
+                            currentMessageIdRef.current
+                        );
+                    });
+                } catch (err) {
+                    console.error('Failed to start capture:', err);
+                    setIsBroadcasting(false);
+                }
             }
         }, 50);
 
@@ -145,11 +150,11 @@ export const useAudioSession = () => {
         setTimeout(() => clearInterval(checkMessageId), 3000);
     };
 
-    const stopBroadcasting = () => {
+    const stopBroadcasting = async () => {
         if (!isOnline || !audioProcessorRef.current) return;
 
         setIsBroadcasting(false);
-        audioProcessorRef.current.stopCapture();
+        await audioProcessorRef.current.stopCapture();
 
         // End the voice message
         if (currentMessageIdRef.current && socketRef.current) {
