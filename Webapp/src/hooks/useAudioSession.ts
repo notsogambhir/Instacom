@@ -70,11 +70,27 @@ export const useAudioSession = () => {
             });
 
             // Handle incoming audio from other users
-            socket.on(SocketEvents.VOICE_STREAM, (chunkArray: number[], senderId: string) => {
-                // Convert Array back to Float32Array (Socket.IO serializes typed arrays as plain arrays)
-                const chunk = new Float32Array(chunkArray);
+            socket.on(SocketEvents.VOICE_STREAM, (audioData: any, senderId: string) => {
+                // Convert to Float32Array - Socket.IO may serialize typed arrays as plain arrays or objects
+                let chunk: Float32Array;
+
+                if (audioData instanceof Float32Array) {
+                    chunk = audioData;
+                } else if (Array.isArray(audioData)) {
+                    chunk = new Float32Array(audioData);
+                } else if (audioData && typeof audioData === 'object' && audioData.length !== undefined) {
+                    // Handle case where Socket.IO serializes Float32Array as an object with numeric keys
+                    const arr = Object.values(audioData).filter(v => typeof v === 'number') as number[];
+                    chunk = new Float32Array(arr);
+                } else {
+                    console.error(`❌ Invalid audio data type:`, typeof audioData, audioData);
+                    return;
+                }
+
                 console.log(`📥 Received audio chunk from ${senderId} (${chunk.length} samples)`);
                 console.log(`   My socket ID: ${socket.id} | Sender ID: ${senderId}`);
+                console.log(`   Data type: ${Array.isArray(audioData) ? 'Array' : audioData.constructor?.name}`);
+
                 // Don't play back our own audio (echo prevention)
                 if (senderId !== socket.id && audioPlayerRef.current) {
                     console.log(`🔊 Queueing audio for playback`);
