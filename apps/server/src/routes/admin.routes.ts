@@ -1,8 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import { authenticate, requireRole } from '../middleware/auth.middleware';
 import { UserRole } from '@instacom/shared';
-import { prisma } from '../lib/db';
+import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
+
+const prisma = new PrismaClient();
 
 export const adminRoutes = async (fastify: FastifyInstance) => {
     // List members in user's group
