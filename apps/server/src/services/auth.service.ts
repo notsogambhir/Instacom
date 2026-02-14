@@ -38,11 +38,31 @@ export class AuthService {
     }
 
     async login(email: string, pass: string): Promise<{ accessToken: string; refreshToken: string; user: any }> {
+        console.log(`🔐 Login attempt for email: ${email}`);
+
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user || !(await argon2.verify(user.passwordHash, pass))) {
+
+        if (!user) {
+            console.log(`❌ User not found: ${email}`);
             throw new Error('Invalid credentials');
         }
-        if (!user.isActive) throw new Error('Account suspended');
+
+        console.log(`✅ User found: ${user.email}, checking password...`);
+        console.log(`   Password hash starts with: ${user.passwordHash.substring(0, 30)}`);
+        console.log(`   Password length provided: ${pass.length}`);
+
+        const passwordValid = await argon2.verify(user.passwordHash, pass);
+        console.log(`   Password valid: ${passwordValid}`);
+
+        if (!passwordValid) {
+            console.log(`❌ Password verification failed for ${email}`);
+            throw new Error('Invalid credentials');
+        }
+
+        if (!user.isActive) {
+            console.log(`❌ Account suspended: ${email}`);
+            throw new Error('Account suspended');
+        }
 
         const accessToken = this.generateAccessToken(user);
         const refreshToken = await this.generateRefreshToken(user.id);
