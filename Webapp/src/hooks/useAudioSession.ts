@@ -111,6 +111,11 @@ export const useAudioSession = () => {
     const startBroadcasting = () => {
         if (!isOnline || !audioProcessorRef.current || !socketRef.current) return;
 
+        // Ensure previous capture is stopped
+        if (audioProcessorRef.current) {
+            audioProcessorRef.current.stopCapture();
+        }
+
         // Start a new voice message
         const metadata = target.type === 'BROADCAST'
             ? { groupId: user?.groupId }
@@ -119,8 +124,10 @@ export const useAudioSession = () => {
         socketRef.current.emit(SocketEvents.VOICE_STREAM_START, metadata);
 
         // Wait for message ID, then start capturing
+        let captureStarted = false;
         const checkMessageId = setInterval(() => {
-            if (currentMessageIdRef.current) {
+            if (currentMessageIdRef.current && !captureStarted) {
+                captureStarted = true;
                 clearInterval(checkMessageId);
                 setIsBroadcasting(true);
 
