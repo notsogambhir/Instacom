@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import { deleteVoiceMessage } from './storage.service';
 
-const prisma = new PrismaClient();
 
 /**
  * Clean up old voice messages beyond retention limit
