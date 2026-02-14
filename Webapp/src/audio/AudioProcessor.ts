@@ -35,18 +35,22 @@ export class AudioProcessor {
             throw new Error('AudioContext not initialized');
         }
 
-        this.onDataCallback = onData;
-
         try {
-            // Request microphone access
+            console.log('🎤 Requesting microphone access...');
+
+            // Simplified constraints - try basic settings first
             this.mediaStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: true,
-                    noiseSuppression: true, // Browser's built-in noise suppression
+                    noiseSuppression: true,
                     autoGainControl: true,
-                    sampleRate: 16000
+                    // Removed sampleRate constraint as it might cause issues on some browsers
                 }
             });
+
+            console.log('✅ Microphone access granted');
+            console.log(`   Tracks: ${this.mediaStream.getTracks().length}`);
+            console.log(`   Track state: ${this.mediaStream.getTracks()[0]?.readyState}`);
 
             // Create audio source from microphone
             this.source = this.audioContext.createMediaStreamSource(this.mediaStream);
@@ -63,13 +67,8 @@ export class AudioProcessor {
                 for (let i = 0; i < inputData.length; i += chunkSize) {
                     const chunk = inputData.slice(i, Math.min(i + chunkSize, inputData.length));
 
-                    // Pad to 480 if last chunk is smaller
-                    if (chunk.length < chunkSize) {
-                        const padded = new Float32Array(chunkSize);
-                        padded.set(chunk);
-                        this.onDataCallback?.(padded);
-                    } else {
-                        this.onDataCallback?.(chunk);
+                    if (this.onDataCallback) {
+                        this.onDataCallback(chunk);
                     }
                 }
             };
@@ -78,10 +77,25 @@ export class AudioProcessor {
             this.source.connect(this.processor);
             this.processor.connect(this.audioContext.destination);
 
-            console.log('Mic capture started');
-        } catch (error) {
-            console.error('Failed to access microphone:', error);
-            throw error;
+            this.onDataCallback = onData;
+
+            console.log('🎤 Mic capture started successfully');
+        } catch (err: any) {
+            console.error('❌ Failed to access microphone:', err);
+            console.error('   Error name:', err.name);
+            console.error('   Error message:', err.message);
+            console.error('   Error stack:', err.stack);
+
+            // Check if it's a permissions issue
+            if (err.name === 'NotAllowedError') {
+                throw new Error('Microphone permission denied. Please allow microphone access in your browser settings.');
+            } else if (err.name === 'NotFoundError') {
+                throw new Error('No microphone found. Please check if your microphone is connected.');
+            } else if (err.name === 'NotReadableError') {
+                throw new Error('Microphone is in use by another application. Please close other apps using the microphone and try again.');
+            } else {
+                throw new Error(`Failed to access microphone: ${err.message}`);
+            }
         }
     }
 
