@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
 import { Setup } from './pages/Setup';
+import { Admin } from './pages/Admin';
 
 const RequireAuth = ({ children }: { children: ReactNode }) => {
   const { user, isLoading } = useAuth();
@@ -21,6 +22,14 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<Setup />} />
+          <Route
+            path="/admin"
+            element={
+              <RequireAuth>
+                <Admin />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/"
             element={

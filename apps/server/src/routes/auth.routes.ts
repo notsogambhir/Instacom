@@ -74,7 +74,8 @@ export const authRoutes = async (fastify: FastifyInstance) => {
         // Verify creator is allowed to invite to this group (add stricter checks later)
         try {
             const token = await authService.createInvite(request.user!.userId, email, role as UserRole, groupId);
-            return { link: `http://localhost:5173/setup?token=${token}` };
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            return { link: `${frontendUrl}/setup?token=${token}` };
         } catch (err: any) {
             reply.code(500).send({ message: err.message });
         }

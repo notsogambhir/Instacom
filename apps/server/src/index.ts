@@ -27,6 +27,10 @@ const start = async () => {
         const { statusRoutes } = await import('./routes/status.routes');
         await fastify.register(statusRoutes);
 
+        // Register admin routes (requires admin auth)
+        const { adminRoutes } = await import('./routes/admin.routes');
+        await fastify.register(adminRoutes, { prefix: '/admin' });
+
         // Register voice message routes (requires auth)
         const { voiceRoutes } = await import('./routes/voice.routes');
         await fastify.register(voiceRoutes);
