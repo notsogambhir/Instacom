@@ -35,6 +35,16 @@ export class AudioPlayer {
     queueAudio(chunk: Float32Array, userId: string) {
         if (!this.audioContext || !this.masterGainNode) return;
 
+        // Resume audio context if suspended (Chrome requires user interaction)
+        if (this.audioContext.state === 'suspended') {
+            console.log('⚠️ AudioContext suspended, attempting to resume...');
+            this.audioContext.resume().then(() => {
+                console.log('✅ AudioContext resumed successfully');
+            }).catch(err => {
+                console.error('❌ Failed to resume AudioContext:', err);
+            });
+        }
+
         // Get or create stream for this userId
         let stream = this.streams.get(userId);
         if (!stream) {
