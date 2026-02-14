@@ -71,9 +71,17 @@ export const authRoutes = async (fastify: FastifyInstance) => {
     }, async (request, reply) => {
         // user is now populated
         const { email, role, groupId } = request.body as any;
+
+        // If groupId not provided, use the creator's group
+        const targetGroupId = groupId || request.user!.groupId;
+
+        if (!targetGroupId) {
+            return reply.code(400).send({ message: 'Group ID is required' });
+        }
+
         // Verify creator is allowed to invite to this group (add stricter checks later)
         try {
-            const token = await authService.createInvite(request.user!.userId, email, role as UserRole, groupId);
+            const token = await authService.createInvite(request.user!.userId, email, role as UserRole, targetGroupId);
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
             return { link: `${frontendUrl}/setup?token=${token}` };
         } catch (err: any) {
