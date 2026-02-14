@@ -170,8 +170,8 @@ export class AudioPlayer {
                 // Increment inactivity counter
                 inactivityCount++;
 
-                // Only cleanup after 6 consecutive inactive checks (3 seconds total)
-                if (inactivityCount >= 6) {
+                // Only cleanup after 12 consecutive inactive checks (6 seconds total)
+                if (inactivityCount >= 12) {
                     console.log(`✅ Stream playback ended for user: ${userId}`);
                     console.log(`🧹 Cleaning up stream for user: ${userId}`);
 
