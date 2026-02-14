@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { authenticate } from '../middleware/auth.middleware';
+import { prisma } from '../lib/prisma';
 
 export const statusRoutes = async (fastify: FastifyInstance) => {
     // Add auth middleware to all routes
@@ -17,15 +18,10 @@ export const statusRoutes = async (fastify: FastifyInstance) => {
         }
 
         try {
-            const { PrismaClient } = await import('@prisma/client');
-            const prisma = new PrismaClient();
-
             await prisma.user.update({
                 where: { id: user.userId },
                 data: { status, lastSeenAt: new Date() }
             });
-
-            await prisma.$disconnect();
 
             return { success: true, status };
         } catch (err) {
@@ -46,9 +42,6 @@ export const statusRoutes = async (fastify: FastifyInstance) => {
         }
 
         try {
-            const { PrismaClient } = await import('@prisma/client');
-            const prisma = new PrismaClient();
-
             const members = await prisma.user.findMany({
                 where: { groupId },
                 select: {
@@ -58,8 +51,6 @@ export const statusRoutes = async (fastify: FastifyInstance) => {
                     status: true
                 }
             });
-
-            await prisma.$disconnect();
 
             return members;
         } catch (err) {

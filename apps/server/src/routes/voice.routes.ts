@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { authenticate } from '../middleware/auth.middleware';
+import { prisma } from '../lib/prisma';
 
 export const voiceRoutes = async (fastify: FastifyInstance) => {
     // Add auth middleware to all routes
@@ -17,9 +18,6 @@ export const voiceRoutes = async (fastify: FastifyInstance) => {
         }
 
         try {
-            const { PrismaClient } = await import('@prisma/client');
-            const prisma = new PrismaClient();
-
             // Build query based on type
             const where: any = {};
 
@@ -54,8 +52,6 @@ export const voiceRoutes = async (fastify: FastifyInstance) => {
                 take: type === 'direct' ? 5 : 10 // Limit based on type
             });
 
-            await prisma.$disconnect();
-
             return messages;
         } catch (err) {
             fastify.log.error({ err }, 'Failed to fetch voice message history');
@@ -72,9 +68,6 @@ export const voiceRoutes = async (fastify: FastifyInstance) => {
         }
 
         try {
-            const { PrismaClient } = await import('@prisma/client');
-            const prisma = new PrismaClient();
-
             const messages = await prisma.voiceMessage.findMany({
                 where: {
                     OR: [
@@ -93,8 +86,6 @@ export const voiceRoutes = async (fastify: FastifyInstance) => {
                 },
                 orderBy: { createdAt: 'desc' }
             });
-
-            await prisma.$disconnect();
 
             return messages;
         } catch (err) {
@@ -115,15 +106,10 @@ export const voiceRoutes = async (fastify: FastifyInstance) => {
         }
 
         try {
-            const { PrismaClient } = await import('@prisma/client');
-            const prisma = new PrismaClient();
-
             await prisma.voiceMessage.update({
                 where: { id },
                 data: { isPlayed: true }
             });
-
-            await prisma.$disconnect();
 
             return { success: true };
         } catch (err) {

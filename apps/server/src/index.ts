@@ -3,12 +3,11 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './lib/prisma';
 import { SocketEvents, type AuthPayload } from '@instacom/shared';
 import { authRoutes } from './routes/auth.routes';
 
 const fastify = Fastify({ logger: true });
-const prisma = new PrismaClient();
 
 const start = async () => {
     try {
