@@ -26,6 +26,10 @@ export class AudioProcessor {
         return input;
     }
 
+    isCapturing(): boolean {
+        return this.mediaStream !== null;
+    }
+
     async startCapture(onData: (chunk: Float32Array) => void) {
         if (!this.audioContext) {
             throw new Error('AudioContext not initialized');

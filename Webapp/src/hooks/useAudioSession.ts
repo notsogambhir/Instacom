@@ -111,8 +111,8 @@ export const useAudioSession = () => {
     const startBroadcasting = async () => {
         if (!isOnline || !audioProcessorRef.current || !socketRef.current) return;
 
-        // Ensure previous capture is stopped and tracks are fully released
-        if (audioProcessorRef.current) {
+        // Only stop previous capture if there's an active stream
+        if (audioProcessorRef.current && audioProcessorRef.current.isCapturing()) {
             await audioProcessorRef.current.stopCapture();
             // Extra delay to ensure browser releases mic hardware completely
             await new Promise(resolve => setTimeout(resolve, 400));
