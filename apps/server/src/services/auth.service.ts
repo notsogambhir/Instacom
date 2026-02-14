@@ -1,10 +1,10 @@
-import { PrismaClient, User, RefreshToken } from '@prisma/client';
+import { User, RefreshToken } from '@prisma/client';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import { randomUUID, randomBytes } from 'crypto';
 import { AuthPayload, UserRole, LoginResponse } from '@instacom/shared';
+import { prisma } from '../lib/prisma';
 
-const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret';
 const REFRESH_SECRET = process.env.REFRESH_SECRET || 'dev_refresh_secret';
 
