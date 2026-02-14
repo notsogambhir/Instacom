@@ -136,7 +136,8 @@ export class AudioPlayer {
         stream.isPlaying = false;
         console.log(`✅ Stream playback ended for user: ${userId}`);
 
-        // Clean up inactive streams after a delay
+        // Clean up inactive streams after a longer delay to account for chunked transmission
+        // Voice messages arrive in chunks with small gaps, so we wait longer before cleanup
         setTimeout(() => {
             if (stream.queue.length === 0 && !stream.isPlaying) {
                 console.log(`🧹 Cleaning up stream for user: ${userId}`);
@@ -144,7 +145,7 @@ export class AudioPlayer {
                 this.streams.delete(userId);
                 this.updateGainLevels();
             }
-        }, 1000); // 1 second grace period
+        }, 5000); // 5 second grace period for ongoing transmissions
     }
 
     /**
