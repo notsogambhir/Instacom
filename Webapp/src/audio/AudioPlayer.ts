@@ -95,57 +95,94 @@ export class AudioPlayer {
 
     /**
      * Start playback for a specific user's stream
-     * Runs independently from other streams (concurrent playback)
+     * Uses scheduled playback to create continuous audio without gaps
      */
     private async startStreamPlayback(userId: string) {
         const stream = this.streams.get(userId);
         if (!stream || !this.audioContext) return;
 
+        // Prevent multiple playback loops for the same stream
+        if (stream.isPlaying) return;
+
         stream.isPlaying = true;
 
-        while (stream.queue.length > 0) {
-            const chunk = stream.queue.shift();
-            if (!chunk) break;
+        // Track the next scheduled playback time for gapless audio
+        let nextPlayTime = this.audioContext.currentTime;
 
-            // Validate chunk has data
-            if (!chunk.length || chunk.length === 0) {
-                console.warn(`⚠️ Skipping empty audio chunk (length: ${chunk.length})`);
-                continue;
+        // Continuously process queue chunks
+        const processQueue = () => {
+            // Process all available chunks in queue
+            while (stream.queue.length > 0) {
+                const chunk = stream.queue.shift();
+                if (!chunk) break;
+
+                // Validate chunk has data
+                if (!chunk.length || chunk.length === 0) {
+                    console.warn(`⚠️ Skipping empty audio chunk (length: ${chunk.length})`);
+                    continue;
+                }
+
+                // Create audio buffer from Float32Array
+                const audioBuffer = this.audioContext!.createBuffer(
+                    1, // mono
+                    chunk.length,
+                    this.audioContext!.sampleRate
+                );
+                audioBuffer.getChannelData(0).set(chunk);
+
+                // Create source and connect to this stream's gain node
+                const source = this.audioContext!.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(stream.gainNode);
+
+                // Schedule playback at the precise next time to create gapless audio
+                // If we're behind schedule, play immediately
+                const playTime = Math.max(nextPlayTime, this.audioContext!.currentTime);
+                source.start(playTime);
+
+                // Calculate when this chunk will finish
+                const chunkDuration = chunk.length / this.audioContext!.sampleRate;
+                nextPlayTime = playTime + chunkDuration;
             }
 
-            // Create audio buffer from Float32Array
-            const audioBuffer = this.audioContext.createBuffer(
-                1, // mono
-                chunk.length,
-                this.audioContext.sampleRate
-            );
-            audioBuffer.getChannelData(0).set(chunk);
-
-            // Create source and connect to this stream's gain node
-            const source = this.audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(stream.gainNode);
-
-            // Play the chunk and wait for it to finish
-            await new Promise<void>((resolve) => {
-                source.onended = () => resolve();
-                source.start();
-            });
-        }
-
-        stream.isPlaying = false;
-        console.log(`✅ Stream playback ended for user: ${userId}`);
-
-        // Clean up inactive streams after a longer delay to account for chunked transmission
-        // Voice messages arrive in chunks with small gaps, so we wait longer before cleanup
-        setTimeout(() => {
-            if (stream.queue.length === 0 && !stream.isPlaying) {
-                console.log(`🧹 Cleaning up stream for user: ${userId}`);
-                stream.gainNode.disconnect();
-                this.streams.delete(userId);
-                this.updateGainLevels();
+            // Check if more chunks might be coming
+            if (stream.isPlaying) {
+                // Schedule next check for new chunks
+                setTimeout(processQueue, 50); // Check every 50ms for new chunks
             }
-        }, 5000); // 5 second grace period for ongoing transmissions
+        };
+
+        // Start processing queue
+        processQueue();
+
+        // Monitor and stop when stream is inactive
+        const monitorActivity = () => {
+            // Check if stream still has pending audio or new chunks
+            const hasActivity = stream.queue.length > 0 ||
+                nextPlayTime > this.audioContext!.currentTime;
+
+            if (!hasActivity) {
+                // No activity - stop the stream
+                stream.isPlaying = false;
+                console.log(`✅ Stream playback ended for user: ${userId}`);
+
+                // Clean up after delay
+                setTimeout(() => {
+                    if (stream.queue.length === 0 && !stream.isPlaying) {
+                        console.log(`🧹 Cleaning up stream for user: ${userId}`);
+                        stream.gainNode.disconnect();
+                        this.streams.delete(userId);
+                        this.updateGainLevels();
+                    }
+                }, 5000); // 5 second grace period
+            } else {
+                // Still active - check again later
+                setTimeout(monitorActivity, 500);
+            }
+        };
+
+        // Start monitoring
+        setTimeout(monitorActivity, 500);
     }
 
     /**
