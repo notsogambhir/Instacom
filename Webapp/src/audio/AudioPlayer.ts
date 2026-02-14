@@ -170,20 +170,15 @@ export class AudioPlayer {
                 // Increment inactivity counter
                 inactivityCount++;
 
-                // Only stop after 3 consecutive inactive checks (1.5 seconds total)
-                if (inactivityCount >= 3) {
-                    stream.isPlaying = false;
+                // Only cleanup after 6 consecutive inactive checks (3 seconds total)
+                if (inactivityCount >= 6) {
                     console.log(`✅ Stream playback ended for user: ${userId}`);
+                    console.log(`🧹 Cleaning up stream for user: ${userId}`);
 
-                    // Clean up after delay
-                    setTimeout(() => {
-                        if (stream.queue.length === 0 && !stream.isPlaying) {
-                            console.log(`🧹 Cleaning up stream for user: ${userId}`);
-                            stream.gainNode.disconnect();
-                            this.streams.delete(userId);
-                            this.updateGainLevels();
-                        }
-                    }, 5000); // 5 second grace period
+                    stream.isPlaying = false;
+                    stream.gainNode.disconnect();
+                    this.streams.delete(userId);
+                    this.updateGainLevels();
                     return; // Stop monitoring
                 } else {
                     // Still might have activity - check again

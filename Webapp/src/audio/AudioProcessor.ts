@@ -62,9 +62,9 @@ export class AudioProcessor {
             this.processor.onaudioprocess = (event) => {
                 const inputData = event.inputBuffer.getChannelData(0);
 
-                // Process in 2048-sample chunks (128ms frames at 16kHz)
+                // Process in 4096-sample chunks (256ms frames at 16kHz)
                 // Larger chunks reduce Socket.IO overhead while maintaining acceptable latency
-                const chunkSize = 2048;
+                const chunkSize = 4096;
                 for (let i = 0; i < inputData.length; i += chunkSize) {
                     const chunk = inputData.slice(i, Math.min(i + chunkSize, inputData.length));
 
