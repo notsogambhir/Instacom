@@ -7,6 +7,9 @@ export const prisma =
     globalForPrisma.prisma ||
     new PrismaClient({
         log: ['error', 'warn'],
+        // Disable prepared statements to fix "prepared statement already exists" error
+        // This is required when using Supabase or connection poolers
+        datasourceUrl: process.env.DATABASE_URL + '?pgbouncer=true&statement_cache_size=0',
     });
 
 // Always cache the singleton, regardless of environment
