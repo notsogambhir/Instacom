@@ -8,6 +8,7 @@ interface SpeakerStream {
     queue: Float32Array[];
     gainNode: GainNode;
     isPlaying: boolean;
+    nextPlayTime: number;  // Track scheduled playback time
 }
 
 export class AudioPlayer {
@@ -55,7 +56,8 @@ export class AudioPlayer {
                 userId,
                 queue: [],
                 gainNode,
-                isPlaying: false
+                isPlaying: false,
+                nextPlayTime: this.audioContext.currentTime  // Initialize playback time
             };
             this.streams.set(userId, stream);
 
@@ -106,8 +108,10 @@ export class AudioPlayer {
 
         stream.isPlaying = true;
 
-        // Track the next scheduled playback time for gapless audio
-        let nextPlayTime = this.audioContext.currentTime;
+        // Initialize playback time if not set
+        if (!stream.nextPlayTime || stream.nextPlayTime < this.audioContext.currentTime) {
+            stream.nextPlayTime = this.audioContext.currentTime;
+        }
 
         // Continuously process queue chunks
         const processQueue = () => {
@@ -137,12 +141,12 @@ export class AudioPlayer {
 
                 // Schedule playback at the precise next time to create gapless audio
                 // If we're behind schedule, play immediately
-                const playTime = Math.max(nextPlayTime, this.audioContext!.currentTime);
+                const playTime = Math.max(stream.nextPlayTime, this.audioContext!.currentTime);
                 source.start(playTime);
 
                 // Calculate when this chunk will finish
                 const chunkDuration = chunk.length / this.audioContext!.sampleRate;
-                nextPlayTime = playTime + chunkDuration;
+                stream.nextPlayTime = playTime + chunkDuration;
             }
 
             // Check if more chunks might be coming
@@ -155,34 +159,45 @@ export class AudioPlayer {
         // Start processing queue
         processQueue();
 
-        // Monitor and stop when stream is inactive
+        // Monitor and stop when stream is truly inactive
+        let inactivityCount = 0;
         const monitorActivity = () => {
             // Check if stream still has pending audio or new chunks
-            const hasActivity = stream.queue.length > 0 ||
-                nextPlayTime > this.audioContext!.currentTime;
+            const queueHasData = stream.queue.length > 0;
+            const audioStillPlaying = stream.nextPlayTime > this.audioContext!.currentTime + 0.1; // 100ms buffer
 
-            if (!hasActivity) {
-                // No activity - stop the stream
-                stream.isPlaying = false;
-                console.log(`✅ Stream playback ended for user: ${userId}`);
+            if (!queueHasData && !audioStillPlaying) {
+                // Increment inactivity counter
+                inactivityCount++;
 
-                // Clean up after delay
-                setTimeout(() => {
-                    if (stream.queue.length === 0 && !stream.isPlaying) {
-                        console.log(`🧹 Cleaning up stream for user: ${userId}`);
-                        stream.gainNode.disconnect();
-                        this.streams.delete(userId);
-                        this.updateGainLevels();
-                    }
-                }, 5000); // 5 second grace period
+                // Only stop after 3 consecutive inactive checks (1.5 seconds total)
+                if (inactivityCount >= 3) {
+                    stream.isPlaying = false;
+                    console.log(`✅ Stream playback ended for user: ${userId}`);
+
+                    // Clean up after delay
+                    setTimeout(() => {
+                        if (stream.queue.length === 0 && !stream.isPlaying) {
+                            console.log(`🧹 Cleaning up stream for user: ${userId}`);
+                            stream.gainNode.disconnect();
+                            this.streams.delete(userId);
+                            this.updateGainLevels();
+                        }
+                    }, 5000); // 5 second grace period
+                    return; // Stop monitoring
+                } else {
+                    // Still might have activity - check again
+                    setTimeout(monitorActivity, 500);
+                }
             } else {
-                // Still active - check again later
+                // Activity detected - reset counter and continue monitoring
+                inactivityCount = 0;
                 setTimeout(monitorActivity, 500);
             }
         };
 
-        // Start monitoring
-        setTimeout(monitorActivity, 500);
+        // Start monitoring after a delay to allow initial buffering
+        setTimeout(monitorActivity, 1000);
     }
 
     /**
