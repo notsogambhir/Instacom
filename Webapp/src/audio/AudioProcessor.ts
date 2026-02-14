@@ -101,7 +101,7 @@ export class AudioProcessor {
         console.log('Mic capture stopped');
 
         // Wait for browser to fully release the mic hardware
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 300));
     }
 
     close() {
