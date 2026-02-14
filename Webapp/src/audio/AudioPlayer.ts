@@ -97,6 +97,12 @@ export class AudioPlayer {
             const chunk = stream.queue.shift();
             if (!chunk) break;
 
+            // Validate chunk has data
+            if (!chunk.length || chunk.length === 0) {
+                console.warn(`⚠️ Skipping empty audio chunk (length: ${chunk.length})`);
+                continue;
+            }
+
             // Create audio buffer from Float32Array
             const audioBuffer = this.audioContext.createBuffer(
                 1, // mono

@@ -70,7 +70,9 @@ export const useAudioSession = () => {
             });
 
             // Handle incoming audio from other users
-            socket.on(SocketEvents.VOICE_STREAM, (chunk: Float32Array, senderId: string) => {
+            socket.on(SocketEvents.VOICE_STREAM, (chunkArray: number[], senderId: string) => {
+                // Convert Array back to Float32Array (Socket.IO serializes typed arrays as plain arrays)
+                const chunk = new Float32Array(chunkArray);
                 console.log(`📥 Received audio chunk from ${senderId} (${chunk.length} samples)`);
                 console.log(`   My socket ID: ${socket.id} | Sender ID: ${senderId}`);
                 // Don't play back our own audio (echo prevention)
@@ -135,9 +137,12 @@ export const useAudioSession = () => {
 
                 try {
                     await audioProcessorRef.current!.startCapture((chunk: Float32Array) => {
+                        // Convert Float32Array to regular Array for Socket.IO transmission
+                        // Socket.IO doesn't serialize typed arrays properly
+                        const chunkArray = Array.from(chunk);
                         socketRef.current?.emit(
                             SocketEvents.VOICE_STREAM,
-                            chunk,
+                            chunkArray,
                             currentMessageIdRef.current
                         );
                     });
