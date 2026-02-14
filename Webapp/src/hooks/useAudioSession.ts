@@ -114,6 +114,8 @@ export const useAudioSession = () => {
         // Ensure previous capture is stopped and tracks are fully released
         if (audioProcessorRef.current) {
             await audioProcessorRef.current.stopCapture();
+            // Extra delay to ensure browser releases mic hardware completely
+            await new Promise(resolve => setTimeout(resolve, 400));
         }
 
         // Start a new voice message
@@ -144,7 +146,7 @@ export const useAudioSession = () => {
                     setIsBroadcasting(false);
                 }
             }
-        }, 50);
+        }, 100); // Increased from 50ms to 100ms to reduce CPU usage
 
         // Timeout after 3 seconds
         setTimeout(() => clearInterval(checkMessageId), 3000);
@@ -154,6 +156,8 @@ export const useAudioSession = () => {
         if (!isOnline || !audioProcessorRef.current) return;
 
         setIsBroadcasting(false);
+
+        // Stop capture and wait for full cleanup
         await audioProcessorRef.current.stopCapture();
 
         // End the voice message
