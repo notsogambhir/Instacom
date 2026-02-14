@@ -128,8 +128,10 @@ const start = async () => {
                 const { getRecipients } = await import('./services/voice.service');
                 const recipients = await getRecipients(message.metadata);
 
-                // Live stream to ACTIVE users only
-                const activeUsers = recipients.filter((u: any) => u.status === 'ACTIVE');
+                // Live stream to ACTIVE users only (excluding sender to prevent echo)
+                const activeUsers = recipients.filter((u: any) =>
+                    u.status === 'ACTIVE' && u.id !== message.metadata.senderId
+                );
 
                 for (const recipient of activeUsers) {
                     // Find their socket ID (simplified - in production use a socket-user map)

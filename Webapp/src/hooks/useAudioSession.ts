@@ -25,6 +25,7 @@ export const useAudioSession = () => {
     const audioProcessorRef = useRef<AudioProcessor | null>(null);
     const audioPlayerRef = useRef<AudioPlayer | null>(null);
     const currentMessageIdRef = useRef<string | null>(null);
+    const captureStartTimeRef = useRef<number | null>(null);
 
     // Initialize Socket and Audio on "Go Online"
     const goOnline = async () => {
@@ -150,6 +151,7 @@ export const useAudioSession = () => {
                 captureStarted = true;
                 clearInterval(checkMessageId);
                 setIsBroadcasting(true);
+                captureStartTimeRef.current = Date.now(); // Track start time
 
                 try {
                     await audioProcessorRef.current!.startCapture((chunk: Float32Array) => {
@@ -181,10 +183,23 @@ export const useAudioSession = () => {
         // Stop capture and wait for full cleanup
         await audioProcessorRef.current.stopCapture();
 
+        // Check minimum duration (300ms) to filter accidental clicks
+        const duration = captureStartTimeRef.current
+            ? Date.now() - captureStartTimeRef.current
+            : 0;
+
+        if (duration < 300) {
+            console.log(`⏭️ Discarding short message (${duration}ms < 300ms minimum)`);
+            currentMessageIdRef.current = null;
+            captureStartTimeRef.current = null;
+            return; // Don't send stream_end - message will be discarded
+        }
+
         // End the voice message
         if (currentMessageIdRef.current && socketRef.current) {
             socketRef.current.emit(SocketEvents.VOICE_STREAM_END, currentMessageIdRef.current);
             currentMessageIdRef.current = null;
+            captureStartTimeRef.current = null;
         }
     };
 
